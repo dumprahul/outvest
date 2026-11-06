@@ -4,7 +4,7 @@ import {
   MAX_SNAPSHOT_ENTRIES, RType, bytes32ToVideoId, chunk, descriptionHasChallenge, encodeBindPayload,
   encodeClaimPayload, encodeEnvelope, encodeViewsPayload, makeSeq, videoIdToBytes32,
 } from './report'
-import { parseVideos, MISSING } from './youtube'
+import { parseVideos, MISSING } from './ytparse'
 
 const VAULT = '0x1111111111111111111111111111111111111111' as Hex
 const WALLET = '0x2222222222222222222222222222222222222222' as Hex

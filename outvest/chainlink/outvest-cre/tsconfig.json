@@ -6,7 +6,13 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["bun"]
+    "types": [
+      "bun"
+    ]
   },
-  "include": ["common", "wf-*/main.ts"]
+  "include": [
+    "common",
+    "wf-*/main.ts",
+    "relayer"
+  ]
 }

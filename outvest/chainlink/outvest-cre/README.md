@@ -46,3 +46,14 @@ Simulation without `--broadcast` sends nothing. Simulation uses the mock forward
 - Two BIND reports in the same moment can arrive out of order; the later-seq one wins and the other soft-rejects `STALE_SEQ`. The creator retries after the 10 min cooldown.
 - Changing config changes the workflow id. Because the factory pins ids, set final config before locking.
 - YouTube key is a normal CRE secret. Confidential HTTP would also hide it from node request data.
+
+## Demo mode: manual relayer (no CRE deploy access)
+`relayer/cli.ts` sends the same reports as the workflows, from real YouTube data, by calling `receiver.onReport`
+from the wallet set as the factory's forwarder. Deploy the factory with `FORWARDER=<relayer wallet>` and lock the
+identity with that wallet as `WF_OWNER` (any distinct nonzero ids). Whoever holds that key is the oracle, so this
+is a demo trust model, not the Chainlink one. Campaigns pin their forwarder, so real campaigns need a new factory.
+```bash
+export FACTORY=0x... ; bun relayer/cli.ts bind --vault 0x... --wallet 0x...   # add --dry-run to only simulate
+bun relayer/cli.ts snapshot --vault 0x... ; bun relayer/cli.ts claim --vault 0x... ; bun relayer/cli.ts final --vault 0x...
+```
+Env: `RELAYER_PRIVATE_KEY` (or `PRIVATE_KEY`), `YOUTUBE_API_KEY_VAR`, optional `RPC_URL` (the public RPC rate-limits).

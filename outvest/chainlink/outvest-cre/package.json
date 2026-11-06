@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test common"
+    "test": "bun test common",
+    "relayer": "bun relayer/cli.ts"
   },
   "dependencies": {
     "@chainlink/cre-sdk": "1.23.0",
