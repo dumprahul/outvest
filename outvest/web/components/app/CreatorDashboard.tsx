@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CreLogs } from "@/components/app/CreLogs";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Copy, Loader2, Lock, Timer } from "lucide-react";
 import { Panel, ScheduleChart, Stat } from "@/components/app/AppShell";
@@ -283,6 +284,9 @@ export function CreatorDashboard() {
               <a className="mt-3 block text-xs text-primary underline" target="_blank" rel="noreferrer" href={`https://ccip.chain.link/address/${wallet}`}>Track on the CCIP explorer</a>
             </Panel>
           )}
+          <Panel title="CRE activity">
+            <CreLogs vault={vault} wallet={wallet} />
+          </Panel>
           {camp && (
             <Panel title="Campaign vault">
               <a className="font-mono text-xs text-primary underline" href={explorerAddress(camp.vault)} target="_blank" rel="noreferrer">{camp.vault}</a>
