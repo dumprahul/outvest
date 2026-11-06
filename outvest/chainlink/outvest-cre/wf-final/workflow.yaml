@@ -1,0 +1,16 @@
+staging-settings:
+  user-workflow:
+    workflow-name: outvest-final
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.staging.json"
+    secrets-path: "../secrets.yaml"
+local-simulation:
+  user-workflow:
+    workflow-name: outvest-final-sim
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.local-simulation.json"
+    secrets-path: "../secrets.yaml"

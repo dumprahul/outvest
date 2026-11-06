@@ -1,0 +1,9 @@
+{
+  "chainSelectorName": "arc-testnet",
+  "receiver": "0x6818EFf02e79adDB7cB43bb68600a64c4C5b9C2b",
+  "factory": "0xBD8e1748BE54775d32Cbd2Cbe193F2FD6Cd017a4",
+  "gasLimit": "3000000",
+  "schedule": "0 0 0 * * *",
+  "maxCampaigns": 1,
+  "vaults": []
+}
