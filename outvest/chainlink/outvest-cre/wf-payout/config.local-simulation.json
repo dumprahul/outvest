@@ -5,5 +5,6 @@
   "gasLimit": "2000000",
   "schedule": "0 0 */12 * * *",
   "maxCampaigns": 1,
-  "vaults": []
+  "vaults": [],
+  "dryRun": true
 }

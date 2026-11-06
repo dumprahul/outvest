@@ -33,6 +33,7 @@ const onVerifyRequested = (runtime: Runtime<Config>, log: EVM_PB.Log): string =>
     return JSON.stringify({ status: 'NO_CHALLENGE', vault, wallet, videoId: yt })
   }
 
+  runtime.log(`challenge found on ${yt}; baseline views=${check.views}; sending BIND for ${wallet}`)
   const envelope = encodeEnvelope(
     RType.BIND, vault, makeSeq(runtime.now().getTime()), nowSec(runtime),
     encodeBindPayload(wallet, videoId, challenge, BigInt(Math.trunc(check.views))),

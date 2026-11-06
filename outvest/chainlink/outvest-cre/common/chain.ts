@@ -6,7 +6,8 @@ import {
   decodeFunctionResult, encodeFunctionData, zeroAddress, type Abi, type Hex,
 } from 'viem'
 
-export type ChainCfg = { chainSelectorName: string; gasLimit: string; receiver: string }
+/** dryRun is set only in local-simulation configs: a non-broadcast write has no tx hash. Production configs omit it. */
+export type ChainCfg = { chainSelectorName: string; gasLimit: string; receiver: string; dryRun?: boolean }
 
 export function evmClient(chainSelectorName: string): EVMClient {
   const network = getNetwork({ chainFamily: 'evm', chainSelectorName })
@@ -38,7 +39,10 @@ export function writeEnvelope(
     .writeReport(runtime, { receiver: cfg.receiver, report, gasConfig: { gasLimit: cfg.gasLimit } })
     .result()
   if (res.txStatus !== TxStatus.SUCCESS) throw new Error(res.errorMessage ?? `write status ${res.txStatus}`)
-  if (!res.txHash) throw new Error('write succeeded without a transaction hash')
+  if (!res.txHash) {
+    if (cfg.dryRun) return { txHash: 'dry-run (not broadcast)', receiverStatus: 'n/a' }
+    throw new Error('write succeeded without a transaction hash')
+  }
   // A receiver revert (wrong workflow id/owner, replay...) still returns SUCCESS for the tx.
   const receiverStatus = String(res.receiverContractExecutionStatus)
   return { txHash: bytesToHex(res.txHash), receiverStatus }
