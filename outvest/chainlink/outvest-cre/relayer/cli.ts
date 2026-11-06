@@ -85,8 +85,10 @@ function say(msg: string, o: { level?: 'info' | 'ok' | 'warn' | 'error'; tx?: st
 
 const pk = (process.env.RELAYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY) as Hex | undefined
 const account = privateKeyToAccount(need(pk, 'RELAYER_PRIVATE_KEY') as Hex)
-const pub = createPublicClient({ chain: arc, transport: http() })
-const wallet = createWalletClient({ account, chain: arc, transport: http() })
+// The public RPC rate-limits (429); retry with backoff instead of failing the tick.
+const transport = http(undefined, { retryCount: 6, retryDelay: 800 })
+const pub = createPublicClient({ chain: arc, transport })
+const wallet = createWalletClient({ account, chain: arc, transport })
 const dryRun = flag('dry-run')
 
 async function ytVideos(ids: string[], part: string) {
@@ -145,7 +147,10 @@ async function bind(factory: Hex, vault: Hex, wallet_: Hex): Promise<boolean> {
   if (!yt) { say('no pending binding for this wallet', { level: 'warn' }); return true }
   say(`checking YouTube video ${yt} for the challenge`)
   const [item] = await ytVideos([yt], 'snippet,statistics')
-  if (!item || item.views === MISSING) throw new Error(`YouTube did not return public stats for ${yt}`)
+  if (!item || item.views === MISSING) {
+    say(`YouTube returned nothing for ${yt}. Check the video id, and that the video is Public or Unlisted (not Private); retrying`, { level: 'warn' })
+    return false
+  }
   if (!descriptionHasChallenge(item.description, challenge)) {
     say(`challenge not in the description of ${yt} yet; will retry`, { level: 'warn' })
     return false
@@ -239,6 +244,7 @@ async function watch() {
   const open = new Map<string, { vault: Hex; wallet: Hex; tries: number }>() // unanswered bind requests
   const lastSnap = new Map<string, number>()
   let known = 0
+  let lastTickErr = ''
   for (;;) {
     try {
       const vaults = await vaultsOf()
@@ -278,9 +284,12 @@ async function watch() {
         await claim(factory, v)
         await views(factory, v, 'final')
       }
+      lastTickErr = ''
     } catch (e) {
       ctx = { step: 'loop' }
-      say(`tick failed (will retry): ${(e as Error).message.split('\n')[0]}`, { level: 'warn' })
+      const m = /429|rate limit/i.test((e as Error).message) ? 'RPC rate limit, retrying' : (e as Error).message.split('\n')[0]
+      if (m !== lastTickErr) say(`tick failed (will retry): ${m}`, { level: 'warn' })
+      lastTickErr = m
     }
     await new Promise((r) => setTimeout(r, pollMs))
   }
