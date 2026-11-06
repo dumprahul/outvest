@@ -1,0 +1,9 @@
+.env
+.env.*
+.circle/
+recovery_file*
+node_modules/
+contracts/out/
+contracts/cache/
+broadcast/
+dist/
