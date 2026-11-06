@@ -14,4 +14,5 @@ export const vaultAbi = parseAbi([
   'function bindDeadline() view returns (uint64)',
   'function scheduleLength() view returns (uint256)',
   'function finalized() view returns (bool)',
+  'function creatorCount() view returns (uint256)',
 ])

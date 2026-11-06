@@ -40,7 +40,7 @@ import { factoryAbi as discoveryAbi, vaultAbi } from '../common/abis'
 const arc = defineChain({
   id: 5042002, name: 'Arc Testnet',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-  rpcUrls: { default: { http: [process.env.RPC_URL ?? 'https://rpc.testnet.arc.io'] } },
+  rpcUrls: { default: { http: [process.env.RPC_URL ?? 'https://arc-testnet.g.alchemy.com/v2/X6ZAXtWmtuaPikrbrADli'] } },
 })
 
 const factoryAbi = parseAbi([
@@ -87,7 +87,8 @@ const pk = (process.env.RELAYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY) as Hex |
 const account = privateKeyToAccount(need(pk, 'RELAYER_PRIVATE_KEY') as Hex)
 // The public RPC rate-limits (429); retry with backoff instead of failing the tick.
 const transport = http(undefined, { retryCount: 6, retryDelay: 800 })
-const pub = createPublicClient({ chain: arc, transport })
+// Batch reads into multicalls: far fewer RPC requests per tick.
+const pub = createPublicClient({ chain: arc, transport, batch: { multicall: { wait: 20 } } })
 const wallet = createWalletClient({ account, chain: arc, transport })
 const dryRun = flag('dry-run')
 
@@ -225,9 +226,16 @@ async function vaultsOf(): Promise<Hex[]> {
   const explicit = process.argv.flatMap((a, i) => (a === '--vault' ? [process.argv[i + 1]] : [])) as Hex[]
   if (explicit.length) return explicit
   const n = await pub.readContract({ address: factory, abi: discoveryAbi, functionName: 'campaignCount' })
-  const out: Hex[] = []
-  for (let i = 0n; i < n; i++) out.push(await pub.readContract({ address: factory, abi: discoveryAbi, functionName: 'campaignAt', args: [i] }))
-  return out
+  return Promise.all(Array.from({ length: Number(n) }, (_, i) =>
+    pub.readContract({ address: factory, abi: discoveryAbi, functionName: 'campaignAt', args: [BigInt(i)] })))
+}
+
+function errText(e: unknown): string {
+  const m = e as { shortMessage?: string; message?: string; details?: string; status?: number }
+  const full = `${m.shortMessage ?? ''} ${m.message ?? ''} ${m.details ?? ''} ${m.status ?? ''}`
+  if (/429|rate limit/i.test(full)) return 'RPC rate limit (set RPC_URL to a dedicated endpoint)'
+  const head = (m.shortMessage ?? m.message ?? String(e)).split('\n')[0]
+  return m.details ? `${head} ${m.details.slice(0, 160)}` : head
 }
 
 async function watch() {
@@ -240,21 +248,41 @@ async function watch() {
     say(`this key is not the factory's forwarder (${fwd}); reports would be rejected`, { level: 'error' })
     process.exit(1)
   }
-  let cursor = (await pub.getBlockNumber()) - 3000n
+  let cursor = await pub.getBlockNumber()
   const open = new Map<string, { vault: Hex; wallet: Hex; tries: number }>() // unanswered bind requests
   const lastSnap = new Map<string, number>()
   let known = 0
+  // Catch up on requests made while we were offline. eth_getLogs over a long range is not available on
+  // free RPC plans, so read recent history from the explorer's indexer instead (best effort).
+  try {
+    const r = await fetch(`https://testnet.arcscan.app/api/v2/addresses/${factory}/logs`, { redirect: 'follow' })
+    const items = r.ok ? ((await r.json()) as { items: { topics: Hex[]; data: Hex; transaction_hash: string; block_timestamp: string }[] }).items : []
+    for (const it of items) {
+      if (Date.now() - Date.parse(it.block_timestamp) > 24 * 3600_000) continue
+      try {
+        const ev = decodeEventLog({ abi: discoveryAbi, data: it.data, topics: it.topics as [Hex, ...Hex[]] })
+        if (ev.eventName !== 'VerifyRequested') continue
+        const { vault, wallet: w, videoId, challenge } = ev.args
+        open.set(`${vault}:${w}:${challenge}`, { vault, wallet: w, tries: 0 })
+        ctx = { vault, wallet: w, step: 'request' }
+        say(`found earlier verification request for ${bytes32ToVideoId(videoId)} by ${w}`, { tx: it.transaction_hash })
+      } catch { /* not our event */ }
+    }
+  } catch { /* indexer unavailable: new requests are still picked up live */ }
   let lastTickErr = ''
   for (;;) {
     try {
       const vaults = await vaultsOf()
       if (vaults.length !== known) { ctx = { step: 'discover' }; say(`watching ${vaults.length} campaign vault(s)`); known = vaults.length }
       const head = await pub.getBlockNumber()
-      if (head >= cursor) {
+      // Free RPC tiers cap eth_getLogs (Alchemy free: 10 blocks), so scan in tiny slices and resume on failure.
+      const SLICE = BigInt(process.env.LOG_SLICE ?? 10)
+      while (cursor <= head) {
+        const to = cursor + SLICE - 1n < head ? cursor + SLICE - 1n : head
         const logs = await pub.getContractEvents({
-          address: factory, abi: discoveryAbi, eventName: 'VerifyRequested', fromBlock: cursor, toBlock: head,
+          address: factory, abi: discoveryAbi, eventName: 'VerifyRequested', fromBlock: cursor, toBlock: to,
         })
-        cursor = head + 1n
+        cursor = to + 1n
         for (const l of logs) {
           const { vault, wallet: w, videoId } = l.args
           if (!vault || !w || !videoId) continue
@@ -279,15 +307,23 @@ async function watch() {
       }
       for (const v of vaults) {
         if (Date.now() - (lastSnap.get(v) ?? 0) < snapMs) continue
-        lastSnap.set(v, Date.now())
-        await views(factory, v, 'snapshot')
-        await claim(factory, v)
-        await views(factory, v, 'final')
+        try {
+          // Skip vaults nobody has bound to yet: nothing to snapshot, claim or finalize.
+          const n = await pub.readContract({ address: v, abi: vaultAbi, functionName: 'creatorCount' })
+          if (n === 0n) { lastSnap.set(v, Date.now()); continue }
+          await views(factory, v, 'snapshot')
+          await claim(factory, v)
+          await views(factory, v, 'final')
+          lastSnap.set(v, Date.now())
+        } catch (e) {
+          ctx = { vault: v, step: 'loop' }
+          say(`vault check failed, will retry next round: ${errText(e)}`, { level: 'warn' })
+        }
       }
       lastTickErr = ''
     } catch (e) {
       ctx = { step: 'loop' }
-      const m = /429|rate limit/i.test((e as Error).message) ? 'RPC rate limit, retrying' : (e as Error).message.split('\n')[0]
+      const m = errText(e); if (process.env.DEBUG) console.log((e as Error).stack?.split('\n').slice(0, 12).join('\n'))
       if (m !== lastTickErr) say(`tick failed (will retry): ${m}`, { level: 'warn' })
       lastTickErr = m
     }
