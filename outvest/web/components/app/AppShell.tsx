@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Bell, Copy } from "lucide-react";
+import { Bell } from "lucide-react";
+import { WalletBadge } from "@/components/app/WalletBadge";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +22,7 @@ export function AppShell({ role, children }: { role: "brand" | "creator"; childr
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <span className="soft-shadow hidden items-center gap-2 rounded-xl bg-white px-3 py-2 font-mono text-xs text-ink sm:flex">
-            <span className="size-2 rounded-full bg-ok" /> 0x289f…0687 <Copy className="size-3.5 text-muted-foreground" />
-          </span>
+          <WalletBadge />
           <span className="soft-shadow grid size-9 place-items-center rounded-xl bg-white text-ink"><Bell className="size-4" /></span>
         </div>
       </header>
