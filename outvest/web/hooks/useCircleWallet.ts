@@ -222,7 +222,7 @@ export function useCircleWallet() {
    * Resolves once the user approved; the transaction itself confirms onchain a few seconds later.
    */
   const sendTx = useCallback(
-    async (contractAddress: string, abiFunctionSignature: string, abiParameters: unknown[]) => {
+    async (contractAddress: string, abiFunctionSignature: string, abiParameters: unknown[], amount?: string) => {
       const sdk = sdkRef.current;
       if (!sdk || !session || !wallet) throw new Error("Wallet is not ready");
       const { challengeId } = await circleApi<{ challengeId: string }>("executeContract", {
@@ -231,6 +231,7 @@ export function useCircleWallet() {
         contractAddress,
         abiFunctionSignature,
         abiParameters,
+        ...(amount ? { amount } : {}),
       });
       sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey });
       await new Promise<void>((resolve, reject) => {

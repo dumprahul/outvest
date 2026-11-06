@@ -6,8 +6,9 @@ import { Check, Copy, Loader2, Lock, Timer } from "lucide-react";
 import { Panel, ScheduleChart, Stat } from "@/components/app/AppShell";
 import { useWallet } from "@/components/WalletProvider";
 import {
-  bytes32ToVideoId, explorerAddress, fmtUsdc, loadCampaigns, publicClient, vaultAbi, videoIdToBytes32,
-  type CampaignView,
+  RECEIPT_DST_SELECTOR, RECEIPT_RECEIVER, RECEIPT_SENDER, baseSepolia, basePublicClient, bytes32ToVideoId,
+  explorerAddress, fmtUsdc, loadCampaigns, publicClient, receiptReceiverAbi, receiptSenderAbi, vaultAbi,
+  videoIdToBytes32, type CampaignView,
 } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 import type { Hex } from "viem";
@@ -107,6 +108,49 @@ export function CreatorDashboard() {
   const requestBinding = () => run(() => w.sendTx(vault!, "requestBinding(bytes32)", [videoIdToBytes32(videoId.trim())]));
   const submit = () => run(() => w.sendTx(vault!, "submitForVerification()", []));
   const claim = () => run(() => w.sendTx(vault!, "claim(address)", [wallet!]));
+
+  // Cross-chain receipt: Arc vault state -> CCIP -> Base Sepolia.
+  const [receipt, setReceipt] = useState<bigint | null>(null);
+  const [receiptNote, setReceiptNote] = useState<string | null>(null);
+  const loadReceipt = useCallback(async () => {
+    if (!RECEIPT_RECEIVER || !vault || !wallet) return;
+    try {
+      const r = await basePublicClient.readContract({
+        address: RECEIPT_RECEIVER, abi: receiptReceiverAbi, functionName: "receipts", args: [wallet, vault],
+      });
+      setReceipt(r[3] === 0n ? null : r[0]);
+    } catch {
+      setReceipt(null);
+    }
+  }, [vault, wallet]);
+  useEffect(() => {
+    queueMicrotask(() => void loadReceipt());
+  }, [loadReceipt]);
+
+  async function sendReceipt() {
+    setError(null);
+    setReceiptNote(null);
+    setBusy(true);
+    try {
+      const fee = await publicClient.readContract({
+        address: RECEIPT_SENDER, abi: receiptSenderAbi, functionName: "quote",
+        args: [BigInt(RECEIPT_DST_SELECTOR), RECEIPT_RECEIVER, vault!, wallet!],
+      });
+      // 30% headroom for fee drift; the sender refunds whatever is not used.
+      const value = (Number(fee) / 1e18) * 1.3;
+      await w.sendTx(RECEIPT_SENDER, "sendReceipt(uint64,address,address,address)",
+        [RECEIPT_DST_SELECTOR, RECEIPT_RECEIVER, vault!, wallet!], value.toFixed(6));
+      setReceiptNote("Sent. CCIP usually delivers within a few minutes; this updates by itself.");
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => setTimeout(r, 15000));
+        await loadReceipt();
+      }
+    } catch (e) {
+      setError(msgOf(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!ready) {
     return (
@@ -224,6 +268,21 @@ export function CreatorDashboard() {
 
         <div className="space-y-6 lg:col-span-2">
           <Panel title="Unlock schedule"><ScheduleChart /></Panel>
+          {RECEIPT_SENDER && RECEIPT_RECEIVER && me?.bound && (
+            <Panel title="Portable earnings receipt">
+              <p className="text-xs text-muted-foreground">
+                Prove what you earned on another chain. A Chainlink CCIP message copies your payout total from Arc to {baseSepolia.name}.
+              </p>
+              <p className="mt-3 text-sm text-ink">
+                On {baseSepolia.name}: <span className="font-semibold">{receipt === null ? "no receipt yet" : `$${fmtUsdc(receipt)} verified`}</span>
+              </p>
+              <button disabled={busy} onClick={sendReceipt} className="mt-3 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                {receipt === null ? "Send receipt to Base" : "Update receipt"}
+              </button>
+              {receiptNote && <p className="mt-2 text-xs text-muted-foreground">{receiptNote}</p>}
+              <a className="mt-3 block text-xs text-primary underline" target="_blank" rel="noreferrer" href={`https://ccip.chain.link/address/${wallet}`}>Track on the CCIP explorer</a>
+            </Panel>
+          )}
           {camp && (
             <Panel title="Campaign vault">
               <a className="font-mono text-xs text-primary underline" href={explorerAddress(camp.vault)} target="_blank" rel="noreferrer">{camp.vault}</a>

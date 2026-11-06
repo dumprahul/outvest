@@ -30,8 +30,14 @@ const ALLOWED_SIGNATURES = new Set([
   "claim(address)",
   "settle(address)",
   "sweep()",
+  "sendReceipt(uint64,address,address,address)",
   "createCampaign((address,address,uint64,uint256,uint256,uint32,uint8,uint32,uint64,uint64,uint64,uint256,uint32,(uint32,uint32,uint32)[]))",
 ]);
+
+const decimal = (v: unknown): string => {
+  if (typeof v !== "string" || !/^\d{1,6}(\.\d{1,18})?$/.test(v)) throw new CircleError("Invalid amount", 400);
+  return v;
+};
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -92,6 +98,8 @@ const handlers: Record<string, (b: Body) => Promise<unknown>> = {
         contractAddress,
         abiFunctionSignature: sig,
         abiParameters: b.abiParameters,
+        // Native-token value (whole units, e.g. "0.15"); only the CCIP receipt call needs it.
+        ...(b.amount === undefined ? {} : { amount: decimal(b.amount) }),
         feeLevel: "MEDIUM",
       },
     });

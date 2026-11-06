@@ -107,3 +107,28 @@ export function bytes32ToVideoId(b: string): string | null {
   const s = hex.slice(0, 22).match(/../g)!.map((h) => String.fromCharCode(parseInt(h, 16))).join("");
   return /^[A-Za-z0-9_-]{11}$/.test(s) ? s : null;
 }
+
+// ---- CCIP earnings receipts (Arc -> Base Sepolia) ----
+export const RECEIPT_SENDER = (process.env.NEXT_PUBLIC_RECEIPT_SENDER ?? "") as Hex;
+export const RECEIPT_RECEIVER = (process.env.NEXT_PUBLIC_RECEIPT_RECEIVER ?? "") as Hex;
+export const RECEIPT_DST_SELECTOR = "10344971235874465080"; // Base Sepolia
+
+export const baseSepolia = defineChain({
+  id: 84532,
+  name: "Base Sepolia",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://sepolia.base.org"] } },
+  blockExplorers: { default: { name: "Basescan", url: "https://sepolia.basescan.org" } },
+});
+export const basePublicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(undefined, { retryCount: 4, retryDelay: 700 }),
+});
+
+export const receiptSenderAbi = parseAbi([
+  "function quote(uint64 dstSelector, address dstReceiver, address vault, address wallet) view returns (uint256)",
+]);
+export const receiptReceiverAbi = parseAbi([
+  "function receipts(address wallet, address vault) view returns (uint256 paid, uint64 sourceTimestamp, uint64 sourceBlock, uint64 receivedAt)",
+  "function totalEarned(address wallet) view returns (uint256)",
+]);
