@@ -68,7 +68,8 @@ export function CreatorDashboard() {
     if (!ready) return;
     loadCampaigns()
       .then((all) => {
-        const open = all.filter((c) => !c.finalized);
+        // Only campaigns that can actually pay a creator: not finished and funded for at least one cap.
+        const open = all.filter((c) => !c.finalized && c.totalFunded >= c.cap);
         setCampaigns(open);
         setVault((v) => v ?? open[0]?.vault ?? null);
       })
@@ -127,6 +128,22 @@ export function CreatorDashboard() {
   useEffect(() => {
     queueMicrotask(() => void loadReceipt());
   }, [loadReceipt]);
+
+  const [txs, setTxs] = useState<{ messageId: string; arcTx: string; baseTx: string | null; at: string; paid: string }[]>([]);
+  const loadTxs = useCallback(async () => {
+    if (!wallet) return;
+    try {
+      const r = await fetch(`/api/receipts?wallet=${wallet}`, { cache: "no-store" });
+      setTxs(((await r.json()) as { receipts: typeof txs }).receipts);
+    } catch {
+      /* keep the last list */
+    }
+  }, [wallet]);
+  useEffect(() => {
+    queueMicrotask(() => void loadTxs());
+    const t = setInterval(() => void loadTxs(), 15000);
+    return () => clearInterval(t);
+  }, [loadTxs]);
 
   async function sendReceipt() {
     setError(null);
@@ -281,7 +298,24 @@ export function CreatorDashboard() {
                 {receipt === null ? "Send receipt to Base" : "Update receipt"}
               </button>
               {receiptNote && <p className="mt-2 text-xs text-muted-foreground">{receiptNote}</p>}
-              <a className="mt-3 block text-xs text-primary underline" target="_blank" rel="noreferrer" href={`https://ccip.chain.link/address/${wallet}`}>Track on the CCIP explorer</a>
+              {txs.length > 0 && (
+                <ul className="mt-4 space-y-2 text-xs">
+                  {txs.map((t) => (
+                    <li key={t.messageId} className="rounded-xl bg-surface-lilac/40 p-3">
+                      <div className="font-medium text-ink">${fmtUsdc(BigInt(t.paid))} · {new Date(t.at).toLocaleString()}</div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 text-primary">
+                        <a className="underline" target="_blank" rel="noreferrer" href={`https://testnet.arcscan.app/tx/${t.arcTx}`}>Sent on Arc</a>
+                        <a className="underline" target="_blank" rel="noreferrer" href={`https://ccip.chain.link/msg/${t.messageId}`}>CCIP message</a>
+                        {t.baseTx ? (
+                          <a className="underline" target="_blank" rel="noreferrer" href={`https://sepolia.basescan.org/tx/${t.baseTx}`}>Delivered on Base</a>
+                        ) : (
+                          <span className="text-muted-foreground">Delivering…</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Panel>
           )}
           <Panel title="CRE activity">

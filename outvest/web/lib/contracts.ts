@@ -6,6 +6,7 @@ export const arc = defineChain({
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
   rpcUrls: { default: { http: [process.env.NEXT_PUBLIC_ARC_RPC ?? "https://rpc.testnet.arc.io"] } },
   blockExplorers: { default: { name: "Arcscan", url: "https://testnet.arcscan.app" } },
+  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
 });
 
 /** Factory whose identity is locked; set per environment. */
@@ -16,6 +17,8 @@ export const USDC_DECIMALS = 6;
 // The public RPC rate-limits aggressively; retry with backoff instead of failing the page.
 export const publicClient = createPublicClient({
   chain: arc,
+  // Batch the many small reads of one page into a single multicall request (keeps us under the RPC rate limit).
+  batch: { multicall: { wait: 30 } },
   transport: http(undefined, { retryCount: 6, retryDelay: 700 }),
 });
 
