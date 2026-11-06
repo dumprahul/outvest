@@ -217,6 +217,29 @@ export function useCircleWallet() {
     if (session) await loadWallet(session).catch(() => {});
   }, [session, loadWallet]);
 
+  /**
+   * Asks Circle for a contract-execution challenge, then has the user approve it with their PIN.
+   * Resolves once the user approved; the transaction itself confirms onchain a few seconds later.
+   */
+  const sendTx = useCallback(
+    async (contractAddress: string, abiFunctionSignature: string, abiParameters: unknown[]) => {
+      const sdk = sdkRef.current;
+      if (!sdk || !session || !wallet) throw new Error("Wallet is not ready");
+      const { challengeId } = await circleApi<{ challengeId: string }>("executeContract", {
+        userToken: session.userToken,
+        walletId: wallet.id,
+        contractAddress,
+        abiFunctionSignature,
+        abiParameters,
+      });
+      sdk.setAuthentication({ userToken: session.userToken, encryptionKey: session.encryptionKey });
+      await new Promise<void>((resolve, reject) => {
+        sdk.execute(challengeId, (err) => (err ? reject(new Error(msg(err))) : resolve()));
+      });
+    },
+    [session, wallet],
+  );
+
   const signOut = useCallback(() => {
     sessionStore.clear();
     setSession(null);
@@ -226,5 +249,5 @@ export function useCircleWallet() {
     setStep("email");
   }, []);
 
-  return { step, session, wallet, usdc, busy, error, sendOtp, verifyOtp, signInWithGoogle, refreshBalance, signOut, setStep };
+  return { step, session, wallet, usdc, busy, error, sendOtp, verifyOtp, signInWithGoogle, refreshBalance, sendTx, signOut, setStep };
 }

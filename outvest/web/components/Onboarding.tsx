@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Check, Copy, RefreshCw } from "lucide-react";
-import { useCircleWallet, type Step } from "@/hooks/useCircleWallet";
+import type { Step } from "@/hooks/useCircleWallet";
+import { useWallet } from "@/components/WalletProvider";
 import { roleStore, type Role } from "@/lib/circle-client";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,7 @@ function GoogleIcon() {
 }
 
 export default function Onboarding() {
-  const w = useCircleWallet();
+  const w = useWallet();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role | null>(null);
   const [copied, setCopied] = useState(false);
