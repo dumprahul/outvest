@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test common",
-    "relayer": "bun relayer/cli.ts"
+    "relayer": "bun relayer/cli.ts",
+    "watch": "bun relayer/cli.ts watch"
   },
   "dependencies": {
     "@chainlink/cre-sdk": "1.23.0",

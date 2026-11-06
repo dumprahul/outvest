@@ -47,7 +47,21 @@ Simulation without `--broadcast` sends nothing. Simulation uses the mock forward
 - Changing config changes the workflow id. Because the factory pins ids, set final config before locking.
 - YouTube key is a normal CRE secret. Confidential HTTP would also hide it from node request data.
 
-## Demo mode: manual relayer (no CRE deploy access)
+## Demo mode: automatic relayer (no CRE deploy access)
+One command, nothing else to supply but the factory address and keys (`FACTORY`, `PRIVATE_KEY`, `YOUTUBE_API_KEY_VAR`):
+
+```bash
+FACTORY=0x... bun run watch
+```
+
+It discovers every campaign vault from the factory, answers each `VerifyRequested` (checks the video description,
+sends BIND, retrying for 30 minutes while the creator edits it), posts SNAPSHOT views every `SNAPSHOT_MINUTES`
+(default 30), CLAIMs what is due and FINALizes at the end. Each step is appended to `relayer/cre-log.jsonl`, which the
+creator page shows in its "CRE activity" box (the web app reads the same file through `/api/cre-logs`; override the
+path with `RELAYER_LOG`).
+
+The one-off commands below are still available.
+
 `relayer/cli.ts` sends the same reports as the workflows, from real YouTube data, by calling `receiver.onReport`
 from the wallet set as the factory's forwarder. Deploy the factory with `FORWARDER=<relayer wallet>` and lock the
 identity with that wallet as `WF_OWNER` (any distinct nonzero ids). Whoever holds that key is the oracle, so this

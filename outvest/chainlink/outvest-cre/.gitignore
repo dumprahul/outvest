@@ -3,3 +3,4 @@ node_modules/
 *.wasm
 dist/
 .cre_build_tmp.js
+relayer/cre-log.jsonl
