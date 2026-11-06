@@ -1,0 +1,4 @@
+.DS_Store
+# Arc Studio runtime logs (wallet/RPC traces, not source)
+console.jsonl
+traces.jsonl
