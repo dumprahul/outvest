@@ -30,19 +30,30 @@ would send. Whoever holds that key is the oracle, so this is a demo trust model.
 | `0x3c69f8A357D7017B45aC160a4aBBAaeF24D68351` | 1.5 USDC | 3 | 0.75 USDC | 4.5 USDC |
 | `0x171812c56bB48678bE60e6Ec69f9F771a22C0E6C` | 2 USDC | 3 | 1 USDC | 6 USDC |
 | `0xCFb49045912308dF3a1fe5643B7507246d7D4B0B` | 3 USDC | 3 | 1.5 USDC | 9 USDC |
+| `0x22Fdb7Efe0104B13AbC24EE4623D2a436D1b0AF8` | 1 USDC | 2 | 0.40 USDC | 2 USDC |
+| `0xD7531De92C31f873eCbC4c358F957967E8466554` | 1 USDC | 2 | 0.50 USDC | 2 USDC |
+| `0x51003776A12400713a646c3Fab90A8358CfE5e4f` | 1 USDC | 2 | 0.60 USDC | 2 USDC |
+| `0x60AC318a71a3d1eB9300092BE847471439656967` | 1 USDC | 2 | 0.70 USDC | 2 USDC |
+| `0x05b96386e2186C4A5Ab9F3c6b4A800e583944F06` | 2 USDC | 2 | 0.80 USDC | 4 USDC |
+| `0xdab818BEbfb09C1f37F525bddC87a44a12221B01` | 2 USDC | 2 | 1.00 USDC | 4 USDC |
+| `0xa9168a9893DA3dbB6bAf9072356925097DF17735` | 2 USDC | 2 | 1.20 USDC | 4 USDC |
+| `0x4fF76509763Fd8926Ee8120d759D3A6D872840E5` | 2 USDC | 2 | 1.40 USDC | 4 USDC |
+| `0x70573427f498A0038fC35B90e75a6E556083B61C` | 3 USDC | 2 | 1.50 USDC | 6 USDC |
+| `0x08Ac76D7395BF1C6E91dECc2e539476D2f76e70e` | 3 USDC | 2 | 1.75 USDC | 6 USDC |
 
 All use the demo schedule (25% at day 0, 50% at day 30, 80% at day 60, 100% at day 90) and pay 10% of the cap
 upfront when a creator's first video is verified.
 
 ## Unfunded campaigns (created by mistake, ignore)
 
-These four were created with default settings (300 USDC cap, 10 creators) and never funded. They cannot be edited
+The first four were created with default settings (300 USDC cap, 10 creators) and never funded. The fifth is an accidental duplicate. They cannot be edited
 or removed, and the creator page hides them because they are unfunded.
 
 - `0xC26AE043B672478cc365361d65bfAB886A90DE4A`
 - `0x33B1B6d46Ba7D4b26b4E06E3a0183B759F67FA39`
 - `0x9C9D6b6fb0B682C6D67e95Da2592A1cf126A80E3`
 - `0xEFb17e66bA79A5e59a09885832e3bB9256A913d7`
+- `0xe33644D97834AC6b1ab3Db2285d9BD3f375b579b` (duplicate $1 / $0.40 campaign, 2 creators, never funded)
 
 ## Other deployments
 
