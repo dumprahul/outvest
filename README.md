@@ -1,8 +1,9 @@
-# OutVest
+****# OutVest
 
 > The project lives in the [`outvest/`](outvest) folder of this repository. Paths below are relative to that folder unless they are links.
 
-**Please also access the app from Arc Studio:** https://arc-studio-76515ed277234807858c66b9.vercel.app/
+**Please also access the app from Arc Studio:** https://arc-studio-76515ed277234807858c66b9.vercel.app/ (initial UI)
+Final UI - https://arc-studio-76515ed277234807858c66-shanrahul04gmailcoms-projects.vercel.app/?_gl=1*1emmhc5*_gcl_au*NDgyOTIyNTgxLjE3OTMyMjEyMjMuMTE1NDYuMTc5NDAxNzQ1OC4xNzk0MDE3NDU3LjYyNjEyMjY4MS4xNzkzOTcxNTYyLjE3OTQwMTgxMDg.
 
 Escrowed USDC payouts for YouTube creators, on **Arc**, verified by **Chainlink CRE**.
 
