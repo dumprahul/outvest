@@ -1,6 +1,6 @@
 # OutVest
 
-**Please also access the app from Arc Studio:** https://arc-studio-76515ed277234807858c66b9.vercel.app/
+**Live app:** [Please also access the app from Arc Studio](https://arc-studio-76515ed277234807858c66b9.vercel.app/)
 
 Escrowed USDC payouts for YouTube creators, on **Arc**, verified by **Chainlink CRE**.
 
@@ -45,11 +45,11 @@ The contracts cannot read the internet. CRE reads YouTube, many independent node
 
 ---
 
-# Part 1: Chainlink CRE (the verifier)
+## Part 1: Chainlink CRE (the verifier)
 
 Code: [`chainlink/outvest-cre/`](chainlink/outvest-cre) (TypeScript SDK 1.23.0). Four workflows share one report format.
 
-## 1.1 Where the trigger lives
+### 1.1 Where the trigger lives
 
 There are two trigger types.
 
@@ -82,7 +82,7 @@ handler(
 | `wf-final` | Cron | daily, acts only after `bindDeadline + scheduleLength` | 3 FINAL |
 | `wf-payout` | Cron | every 12 hours | 4 CLAIM |
 
-### CRE architecture diagram
+#### CRE architecture diagram
 
 ```mermaid
 flowchart LR
@@ -124,7 +124,7 @@ flowchart LR
   CK -->|soft fail| REJ["ReportRejected(reason)"]
 ```
 
-## 1.2 What each workflow does
+### 1.2 What each workflow does
 
 **`wf-bind` (register a video).**
 1. Decode the event: vault, wallet, video id, challenge.
@@ -140,7 +140,7 @@ flowchart LR
 
 Each workflow is limited to 15 EVM reads per execution, so the shared code ([`common/vaults.ts`](chainlink/outvest-cre/common/vaults.ts)) budgets reads and continues on the next run.
 
-## 1.3 How the "proof" is produced
+### 1.3 How the "proof" is produced
 
 There are three layers of proof, each answering a different question.
 
@@ -172,7 +172,7 @@ The envelope is `abi.encode(uint8 type, address vault, uint64 seq, uint64 ts, by
 
 `seq` is derived from the DON time (`ms × 16 + chunk`), so it only goes up. `ts` is in seconds.
 
-## 1.4 What the chain checks before acting
+### 1.4 What the chain checks before acting
 
 `ReportReceiver.onReport` ([ReportReceiver.sol:53](outvest_smart_contract_builder_5aq5r7/contracts/ReportReceiver.sol)) runs these checks in order:
 
@@ -185,7 +185,7 @@ The envelope is `abi.encode(uint8 type, address vault, uint64 seq, uint64 ts, by
 
 A failed soft check emits `ReportRejected(vault, type, reason)`. Success emits `ReportAccepted(vault, type, seq)`. The pinning happens once, in `CampaignFactory.lockIdentity(owner, bindId, snapshotId, finalId, payoutId)`, which can only be called once and only by the deployer. After that, only your deployed workflows can move money.
 
-## 1.5 Demo mode (what actually runs today)
+### 1.5 Demo mode (what actually runs today)
 
 Chainlink has not yet enabled CRE deploy access for this account (`cre account access`). The four workflows are written, typecheck, and run in `cre workflow simulate` (the bind path was verified against a real video), but the simulator uses a mock forwarder, so a report cannot land on-chain from it.
 
@@ -202,13 +202,13 @@ FACTORY=0xEfFB32747853C507c3cfa9C2a8f16DbC0eA5dFc8 bun run watch
 
 ---
 
-# Part 2: Arc smart contracts (the money)
+## Part 2: Arc smart contracts (the money)
 
 Code: [`outvest_smart_contract_builder_5aq5r7/contracts/`](outvest_smart_contract_builder_5aq5r7/contracts). USDC on Arc has 6 decimals. 244 Foundry tests pass (`FOUNDRY_SOLC_VERSION=0.8.27 forge test`).
 
 There are four core contracts: `CampaignFactory`, `ReportReceiver`, `CampaignVault` (one per campaign) and `ScheduleLib`.
 
-### Arc architecture diagram
+#### Arc architecture diagram
 
 ```mermaid
 flowchart TB
@@ -268,7 +268,7 @@ flowchart TB
 
 Money state inside a vault: `totalFunded` (deposited) = `totalPaid` (sent out) + `liability` (still reserved for bound creators) + free balance (swept back to the brand). A new creator is only accepted if `liability + cap` fits in the vault's balance.
 
-## 2.1 `CampaignFactory`
+### 2.1 `CampaignFactory`
 
 | Function / event | What it does |
 |---|---|
@@ -282,7 +282,7 @@ Money state inside a vault: `totalFunded` (deposited) = `totalPaid` (sent out) +
 
 Parameter validation covers: non-zero brand and token, a future bind deadline, non-zero cap and rate, 1 to 10 videos per creator, a bucket length of 1 hour to 7 days, `staleAfter` of at least 1 day, and `upfrontPpm` of at most 100,000 (10%). The unlock schedule is checked by `ScheduleLib.validate`.
 
-## 2.2 `ReportReceiver`
+### 2.2 `ReportReceiver`
 
 The only entry point CRE uses. `onReport(metadata, report)` runs the checks in section 1.4, then routes by type:
 
@@ -295,7 +295,7 @@ The only entry point CRE uses. `onReport(metadata, report)` runs the checks in s
 
 It also validates each payload shape (`MALFORMED_PAYLOAD`, `LENGTH_MISMATCH`, `BATCH_TOO_LARGE`). Rejection reasons are stable ASCII codes: `DEADLINE`, `NO_MATCH`, `VIDEO_TAKEN`, `FULL`, `BUDGET`, `MAX_VIDEOS`, `STALE_SEQ`, `STALE_TS`, `FUTURE_TS`, `UNKNOWN_VIDEO`, `FINALIZED`, `FINAL_TOO_EARLY`.
 
-## 2.3 `CampaignVault` (escrow, earnings, payouts)
+### 2.3 `CampaignVault` (escrow, earnings, payouts)
 
 Each campaign is its own contract holding that campaign's USDC.
 
@@ -324,7 +324,7 @@ Each campaign is its own contract holding that campaign's USDC.
 
 **Views (read-only):** `claimable`, `creators(offset, limit)`, `creatorInfo`, `videosOf`, `videoInfo`, `schedule`, `pendingBinding`, plus `totalFunded`, `totalPaid`, `liability`, `creatorCount`, `finalized`.
 
-## 2.4 How earnings and payouts are calculated
+### 2.4 How earnings and payouts are calculated
 
 1. **Upfront.** On a creator's first verified video, `upfront = capPerCreator × upfrontPpm / 1,000,000` (10% at the maximum). It pays immediately and ignores `minPayout`. If the transfer fails, state is restored and the amount stays claimable.
 2. **Credited views.** For each video the vault tracks `views − baseline`, using the **minimum observed value across a rolling window of 7 time buckets**. Spikes that do not persist are ignored. Growth is also limited to `maxGrowthPerDay` between observations, so a bot burst cannot jump the credit.
@@ -335,7 +335,7 @@ Each campaign is its own contract holding that campaign's USDC.
 
 **Solvency:** `liability` is the total still owed. `applyBind` refuses a new creator if `liability + cap` would exceed the vault's balance, so every bound creator's cap is always covered.
 
-## 2.5 `ScheduleLib`
+### 2.5 `ScheduleLib`
 
 A monotone, piecewise-linear release curve, with all divisions rounding down.
 
@@ -345,13 +345,13 @@ A monotone, piecewise-linear release curve, with all divisions rounding down.
 
 ---
 
-# Cross-chain earnings receipts (CCIP)
+## Cross-chain earnings receipts (CCIP)
 
 A creator can send a **receipt** of their payout total from Arc to Base Sepolia over Chainlink CCIP. It is proof of earnings, not a token bridge. `EarningsReceiptSender` (Arc) reads the vault's paid total and sends the message, and `EarningsReceiptReceiver` (Base Sepolia) stores it (`receipts(wallet, vault)`, `totalEarned(wallet)`). See [`docs/ccip-receipts.md`](outvest_smart_contract_builder_5aq5r7/docs/ccip-receipts.md).
 
 ---
 
-# Honest status
+## Honest status
 
 - **Testnet only, unaudited.** Do not use real funds.
 - **Oracle:** demo mode uses one relayer key. Real CRE deployment is waiting on Chainlink deploy access, and the production factory (`0xBD8e…17a4`) stays unlocked until then.
@@ -360,7 +360,7 @@ A creator can send a **receipt** of their payout total from Arc to Base Sepolia 
 
 ---
 
-# Repository layout
+## Repository layout
 
 | Path | What it is |
 |---|---|
@@ -381,7 +381,7 @@ A creator can send a **receipt** of their payout total from Arc to Base Sepolia 
 | `EarningsReceiptReceiver` (Base Sepolia) | `0x38E64d11eD3982D108266fA7829E31dd70292061` |
 | Production `CampaignFactory` (not locked) | `0xBD8e1748BE54775d32Cbd2Cbe193F2FD6Cd017a4` |
 
-## Run it
+### Run it
 
 ```bash
 # contracts
