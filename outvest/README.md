@@ -1,6 +1,9 @@
 # OutVest
 
-**Live app:** [Please also access the app from Arc Studio](https://arc-studio-76515ed277234807858c66b9.vercel.app/)
+**Live app (please also access it from Arc Studio):**
+
+- [Initial UI](https://arc-studio-76515ed277234807858c66b9.vercel.app/)
+- [Final UI](https://arc-studio-76515ed277234807858c66-shanrahul04gmailcoms-projects.vercel.app/)
 
 Escrowed USDC payouts for YouTube creators, on **Arc**, verified by **Chainlink CRE**.
 
