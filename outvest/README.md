@@ -1,5 +1,7 @@
 # OutVest
 
+**Please also access the app from Arc Studio:** https://arc-studio-76515ed277234807858c66b9.vercel.app/
+
 Escrowed USDC payouts for YouTube creators, on **Arc**, verified by **Chainlink CRE**.
 
 A brand locks USDC in a campaign vault. A creator proves they own a video, the vault pays them 10% of their cap straight away, and the rest is released as verified views accumulate and a fixed schedule unlocks. Nobody can edit the rules once the vault exists, and the view numbers do not come from either party.
