@@ -77,8 +77,8 @@ export async function loadCampaign(vault: Hex): Promise<CampaignView> {
   return { vault, brand, totalFunded, totalPaid, liability, creatorCount, maxCreators, cap, rate, upfrontPpm, bindDeadline, finalized };
 }
 
-/** Newest-first campaigns from the factory (capped to keep RPC usage small). */
-export async function loadCampaigns(limit = 12): Promise<CampaignView[]> {
+/** Newest-first campaigns from the factory (capped; reads are batched into multicalls). */
+export async function loadCampaigns(limit = 40): Promise<CampaignView[]> {
   if (!FACTORY) return [];
   const count = await publicClient.readContract({ address: FACTORY, abi: factoryAbi, functionName: "campaignCount" });
   const n = Math.min(Number(count), limit);
