@@ -80,6 +80,48 @@ handler(
 | `wf-final` | Cron | daily, acts only after `bindDeadline + scheduleLength` | 3 FINAL |
 | `wf-payout` | Cron | every 12 hours | 4 CLAIM |
 
+### CRE architecture diagram
+
+```mermaid
+flowchart LR
+  subgraph ARC1["Arc (on-chain)"]
+    V["CampaignVault<br/>submitForVerification()"]
+    F["CampaignFactory<br/>emit VerifyRequested"]
+    V -->|emitVerifyRequest| F
+  end
+
+  subgraph CRE["Chainlink CRE (DON nodes, WASM sandbox)"]
+    direction TB
+    T1["Trigger: EVM log<br/>VerifyRequested (wf-bind)"]
+    T2["Trigger: Cron<br/>snapshot 6h, payout 12h, final daily"]
+    R["EVM reads (max 15 per run)<br/>creators, videosOf, claimable,<br/>bindDeadline, finalized"]
+    S[("CRE secrets<br/>YOUTUBE_API_KEY")]
+    N1["Node 1<br/>YouTube API"]
+    N2["Node 2<br/>YouTube API"]
+    N3["Node N<br/>YouTube API"]
+    C["Consensus<br/>median(views), identical(challenge found)"]
+    E["Envelope<br/>abi.encode(type, vault, seq, ts, payload)"]
+    G["DON signs report<br/>runtime.report()"]
+    T1 --> R
+    T2 --> R
+    R --> N1 & N2 & N3
+    S -.-> N1 & N2 & N3
+    N1 & N2 & N3 --> C --> E --> G
+  end
+
+  subgraph ARC2["Arc (on-chain)"]
+    FW["Chainlink Forwarder"]
+    RR["ReportReceiver.onReport"]
+    CK{"Checks<br/>sender is forwarder<br/>workflow owner + ID pinned<br/>no replay, seq up, ts fresh"}
+    FW --> RR --> CK
+  end
+
+  F -->|log event| T1
+  G -->|writeReport| FW
+  CK -->|accepted| ROUTE["Route by type<br/>1 BIND, 2 SNAPSHOT, 3 FINAL, 4 CLAIM"]
+  CK -->|soft fail| REJ["ReportRejected(reason)"]
+```
+
 ## 1.2 What each workflow does
 
 **`wf-bind` (register a video).**
@@ -163,6 +205,66 @@ FACTORY=0xEfFB32747853C507c3cfa9C2a8f16DbC0eA5dFc8 bun run watch
 Code: [`outvest_smart_contract_builder_5aq5r7/contracts/`](outvest_smart_contract_builder_5aq5r7/contracts). USDC on Arc has 6 decimals. 244 Foundry tests pass (`FOUNDRY_SOLC_VERSION=0.8.27 forge test`).
 
 There are four core contracts: `CampaignFactory`, `ReportReceiver`, `CampaignVault` (one per campaign) and `ScheduleLib`.
+
+### Arc architecture diagram
+
+```mermaid
+flowchart TB
+  BRAND["Brand (Circle wallet)"]
+  CREATOR["Creator (Circle wallet)"]
+
+  subgraph FACT["CampaignFactory"]
+    LI["lockIdentity()<br/>pins workflow owner + 4 workflow IDs (once)"]
+    CC["createCampaign(Params)"]
+    EV["emitVerifyRequest()<br/>only registered vaults"]
+    REG[("isVault, campaignAt(i)")]
+  end
+
+  subgraph RECV["ReportReceiver"]
+    OR["onReport(metadata, report)<br/>forwarder only"]
+    CHK["owner + workflow ID check<br/>replay, seq, ts checks"]
+    OR --> CHK
+  end
+
+  subgraph VAULT["CampaignVault (one per campaign, holds the USDC)"]
+    direction TB
+    FUND["fund()"]
+    RB["requestBinding()<br/>creates challenge"]
+    SV["submitForVerification()<br/>10 min cooldown"]
+    AB["applyBind()<br/>reserve cap, pay 10% upfront"]
+    AS["applySnapshot()<br/>rolling-min views, growth cap"]
+    AF["applyFinal()<br/>finalize campaign"]
+    AP["applyPayout()<br/>batch, minPayout"]
+    CL["claim() / settle()"]
+    SW["sweep()<br/>unused funds to brand"]
+    DM["finalizeFromLastSnapshot()<br/>deadman if oracle silent"]
+    SCH["ScheduleLib<br/>unlock fraction by time since bind"]
+  end
+
+  USDC[("USDC (Arc)")]
+  CRE["Chainlink CRE<br/>(see CRE diagram)"]
+
+  CC -->|deploys| VAULT
+  CC --> REG
+  BRAND -->|approve + fund| FUND --> USDC
+  CREATOR --> RB --> SV -->|emitVerifyRequest| EV
+  EV -.->|VerifyRequested| CRE
+  CRE -->|signed report| OR
+  LI -.->|pinned identity| CHK
+  CHK -->|type 1| AB
+  CHK -->|type 2| AS
+  CHK -->|type 3| AF
+  CHK -->|type 4| AP
+  SCH -.-> CL
+  AB -->|upfront| USDC
+  AP --> USDC
+  CL --> USDC
+  SW --> USDC
+  USDC -->|payout| CREATOR
+  USDC -->|refund| BRAND
+```
+
+Money state inside a vault: `totalFunded` (deposited) = `totalPaid` (sent out) + `liability` (still reserved for bound creators) + free balance (swept back to the brand). A new creator is only accepted if `liability + cap` fits in the vault's balance.
 
 ## 2.1 `CampaignFactory`
 
