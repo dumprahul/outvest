@@ -13,6 +13,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className="h-full antialiased"
+      // Browser extensions (e.g. data-cap-chrome-extension-installed) add attributes to <html> before React
+      // hydrates; this silences that one-level mismatch only, not mismatches in the app's own markup.
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground"><WalletProvider>{children}</WalletProvider></body>
     </html>
