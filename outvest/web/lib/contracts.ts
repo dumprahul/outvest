@@ -98,6 +98,29 @@ export const fmtUsdc = (v: bigint): string => {
 export const toUnits = (usdc: number): bigint => BigInt(Math.round(usdc * 10 ** USDC_DECIMALS));
 export const explorerAddress = (a: string) => `${arc.blockExplorers.default.url}/address/${a}`;
 
+/** Pulls the 11-character id out of a pasted YouTube link (watch, youtu.be, shorts, embed, live) or a bare id. */
+export function parseYouTubeId(input: string): string | null {
+  const t = input.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
+  let u: URL;
+  try {
+    u = new URL(/^https?:\/\//i.test(t) ? t : `https://${t}`);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^(www\.|m\.|music\.)/, "");
+  let id: string | null = null;
+  if (host === "youtu.be") id = u.pathname.split("/")[1] ?? null;
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    id = u.searchParams.get("v");
+    if (!id) {
+      const [kind, rest] = u.pathname.split("/").filter(Boolean);
+      if (["shorts", "embed", "live", "v"].includes(kind)) id = rest ?? null;
+    }
+  }
+  return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+}
+
 /** YouTube id (11 chars) -> bytes32 hex, ASCII left-aligned. */
 export function videoIdToBytes32(id: string): Hex {
   if (!/^[A-Za-z0-9_-]{11}$/.test(id)) throw new Error("Enter the 11-character YouTube video id");

@@ -9,7 +9,7 @@ import { useWallet } from "@/components/WalletProvider";
 import {
   RECEIPT_DST_SELECTOR, RECEIPT_RECEIVER, RECEIPT_SENDER, baseSepolia, basePublicClient, bytes32ToVideoId,
   explorerAddress, fmtUsdc, loadCampaigns, publicClient, receiptReceiverAbi, receiptSenderAbi, vaultAbi,
-  videoIdToBytes32, type CampaignView,
+  parseYouTubeId, videoIdToBytes32, type CampaignView,
 } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 import type { Hex } from "viem";
@@ -57,6 +57,7 @@ export function CreatorDashboard() {
   const [vault, setVault] = useState<Hex | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [videoId, setVideoId] = useState("");
+  const parsedId = parseYouTubeId(videoId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -107,7 +108,7 @@ export function CreatorDashboard() {
     }
   }
 
-  const requestBinding = () => run(() => w.sendTx(vault!, "requestBinding(bytes32)", [videoIdToBytes32(videoId.trim())]));
+  const requestBinding = () => run(() => w.sendTx(vault!, "requestBinding(bytes32)", [videoIdToBytes32(parsedId!)]));
   const submit = () => run(() => w.sendTx(vault!, "submitForVerification()", []));
   const claim = () => run(() => w.sendTx(vault!, "claim(address)", [wallet!]));
 
@@ -241,10 +242,19 @@ export function CreatorDashboard() {
 
               {!me?.bound && (
                 <div className="mt-6">
-                  <label className="text-xs font-medium text-ink">YouTube video id (the 11 characters after v=)
-                    <input className={`${input} mt-1.5 font-mono`} placeholder="dQw4w9WgXcQ" value={videoId} onChange={(e) => setVideoId(e.target.value)} />
+                  <label className="text-xs font-medium text-ink">YouTube video link
+                    <input className={`${input} mt-1.5 font-mono`} placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ" value={videoId} onChange={(e) => setVideoId(e.target.value)} />
                   </label>
-                  <button disabled={busy || videoId.trim().length !== 11} onClick={requestBinding} className="mt-3 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                  {videoId.trim() !== "" && (
+                    <p className={`mt-2 text-xs ${parsedId ? "text-ok" : "text-rust"}`}>
+                      {parsedId ? (
+                        <>Video id detected: <span className="font-mono font-semibold">{parsedId}</span>. This is what will be registered.</>
+                      ) : (
+                        "That doesn't look like a YouTube video link. Paste the full link, for example https://www.youtube.com/watch?v=… or https://youtu.be/…"
+                      )}
+                    </p>
+                  )}
+                  <button disabled={busy || !parsedId} onClick={requestBinding} className="mt-3 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
                     {me?.challenge ? "Get a new code" : "Get my code"}
                   </button>
                 </div>
